@@ -55,6 +55,7 @@
 #include "nrf_drv_power.h"
 #include "nrf_drv_usbd.h"
 #include "nrf_drv_clock.h"
+#include "boards.h"
 #endif
 
 #include "packet.h"
@@ -108,11 +109,14 @@
 #define PACKET_VESC						0
 #define PACKET_BLE						1
 
-#ifdef NRF52840_XXAA
-#define UART_RX							11
-#define UART_TX							8
-#define UART_TX_DISABLED				25
-#define LED_PIN							7
+#ifdef NRF52840_XXAA																/**< nrf52840 dongle (PCA10059). */
+#define UART_RX							31
+#define UART_TX							29
+#define UART_TX_DISABLED				2
+#define ADVERTISING_LED                 BSP_BOARD_LED_1                         /**< Is on when device disconnected. */
+#define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
+#define POWER_LED                   	BSP_BOARD_LED_0                         /**< Is on when device is advertising. */
+//#define LED_PIN							6
 #else
 #if MODULE_BUILTIN
 #define UART_RX							6
@@ -290,6 +294,7 @@ static void gap_params_init(void)
 static void start_advertising(void) {
 	ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
 	sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, 8);
+	bsp_board_led_on(POWER_LED);
 }
 
 
@@ -392,14 +397,18 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt) {
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 	switch (p_ble_evt->header.evt_id) {
 	case BLE_GAP_EVT_CONNECTED:
-		nrf_gpio_pin_set(LED_PIN);
+		//nrf_gpio_pin_set(LED_PIN);
+		bsp_board_led_on(CONNECTED_LED);
+        bsp_board_led_off(ADVERTISING_LED);
 		m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
 		nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
 		sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, 8);
 		break;
 
 	case BLE_GAP_EVT_DISCONNECTED:
-		nrf_gpio_pin_clear(LED_PIN);
+		//nrf_gpio_pin_clear(LED_PIN);
+		bsp_board_led_off(CONNECTED_LED);
+		bsp_board_led_on(ADVERTISING_LED);
 		m_conn_handle = BLE_CONN_HANDLE_INVALID;
 		break;
 
@@ -687,7 +696,10 @@ static void nrf_timer_handler(void *p_context) {
 }
 
 int main(void) {
-	nrf_gpio_cfg_output(LED_PIN);
+	//nrf_gpio_cfg_output(LED_PIN);
+	
+ /*Initialize LEDs */
+    bsp_board_init(BSP_INIT_LEDS);
 
 #ifdef NRF52840_XXAA
 	nrf_drv_clock_init();
